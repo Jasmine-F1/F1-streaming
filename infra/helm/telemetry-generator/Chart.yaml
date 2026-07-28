@@ -1,0 +1,6 @@
+apiVersion: v2
+name: telemetry-generator
+description: Replays FastF1 historical telemetry onto Kafka as a simulated live feed
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,20 @@
+image:
+  repository: faust-processor
+  tag: local
+  pullPolicy: Never
+
+replicaCount: 1
+
+args: ["worker", "-l", "info"]
+
+env:
+  kafkaBootstrapServers: "kafka.pipeline.svc.cluster.local:9092"
+  inputTopic: "f1.telemetry"
+  outputTopic: "f1.telemetry.processed"
+  appId: "f1-faust-processor"
+  webPort: 6066
+
+service:
+  port: 6066
+
+resources: {}
