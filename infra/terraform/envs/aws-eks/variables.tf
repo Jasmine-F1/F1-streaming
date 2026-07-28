@@ -28,13 +28,7 @@ variable "pipeline_namespace" {
   default = "pipeline"
 }
 
-variable "kafka_chart_version" {
+variable "argocd_chart_version" {
   type    = string
-  default = "32.4.3"
-}
-
-variable "faust_processor_image_tag" {
-  description = "Set to the CI-built/pushed image tag (see .github/workflows) when actually applying this env"
-  type        = string
-  default     = "local"
+  default = "7.7.11"
 }

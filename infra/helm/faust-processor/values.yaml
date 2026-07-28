@@ -17,4 +17,12 @@ env:
 service:
   port: 6066
 
+# Both require the Prometheus Operator CRDs (installed by kube-prometheus-
+# stack) to already exist in the cluster — set to false if deploying
+# faust-processor somewhere without them.
+serviceMonitor:
+  enabled: true
+prometheusRule:
+  enabled: true
+
 resources: {}

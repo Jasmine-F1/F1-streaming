@@ -1,0 +1,55 @@
+# Values override for the prometheus-community/kube-prometheus-stack chart.
+# Tuned for a small local kind cluster, not production:
+#   - K8s control-plane component monitoring (apiserver/scheduler/etcd/etc.)
+#     is disabled: on kind those bind to 127.0.0.1 inside the control-plane
+#     container and aren't reachable via the chart's default ServiceMonitor
+#     selectors, so they'd just sit permanently "down" — and we care about
+#     our own pipeline's metrics here, not K8s's own internals.
+#   - serviceMonitorSelectorNilUsesHelmValues: false so Prometheus picks up
+#     ServiceMonitors from ANY chart/namespace (faust-processor's own
+#     ServiceMonitor isn't part of this Helm release, so it wouldn't match
+#     the chart's default release-scoped selector otherwise).
+#   - Small resource requests, short retention — this is a demo pipeline,
+#     not a production monitoring stack.
+
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 6h
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+grafana:
+  # Local dev convenience only — never do this on a real cluster.
+  adminPassword: admin
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi

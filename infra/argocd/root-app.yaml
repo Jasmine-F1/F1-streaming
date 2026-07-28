@@ -1,0 +1,30 @@
+# The one manifest a human ever runs `kubectl apply -f` on. Everything else
+# — Kafka, faust-processor, and any future service — is picked up
+# automatically because this "app of apps" points ArgoCD at the
+# infra/argocd/apps/ directory: adding a new Application YAML there is all
+# it takes to onboard a new service to GitOps, no further manual commands.
+#
+# Bootstrap (one-time, after ArgoCD itself is up via Terraform):
+#   kubectl apply -f infra/argocd/root-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Jasmine-F1/F1-streaming.git
+    targetRevision: main
+    path: infra/argocd/apps
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

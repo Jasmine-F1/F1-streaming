@@ -1,0 +1,32 @@
+# sync-wave 0 (default, before faust-processor's wave 1): faust-processor's
+# chart includes a ServiceMonitor + PrometheusRule, whose CRDs only exist
+# once this Application's Prometheus Operator has synced. Same multi-source
+# pattern as kafka.yaml (chart from the upstream repo, values from ours).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 87.20.0
+      helm:
+        valueFiles:
+          - $values/infra/helm/kube-prometheus-stack-values.yaml
+    - repoURL: https://github.com/Jasmine-F1/F1-streaming.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
