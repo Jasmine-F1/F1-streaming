@@ -1,0 +1,24 @@
+image:
+  repository: telemetry-generator
+  tag: local
+  pullPolicy: Never
+
+# How long a finished Job (and its pod) stays around before K8s garbage
+# collects it. Avoids the manual `kubectl delete pod ...` cleanup we did by
+# hand while testing.
+ttlSecondsAfterFinished: 300
+
+args:
+  year: "2023"
+  grandPrix: "Bahrain"
+  session: "R"
+  drivers: "VER,HAM,LEC"
+  speed: "20"
+  injectFaults: false
+  faultRate: "0.02"
+
+kafka:
+  bootstrapServers: "kafka.pipeline.svc.cluster.local:9092"
+  topic: "f1.telemetry"
+
+resources: {}

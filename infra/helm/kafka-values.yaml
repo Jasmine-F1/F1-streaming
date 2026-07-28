@@ -1,0 +1,45 @@
+# Values override for the Bitnami Kafka chart (KRaft mode, no ZooKeeper).
+# Single combined controller+broker node, no auth/TLS, small storage —
+# minimal footprint for local `kind` development. Not meant for production.
+#
+# image.repository points at bitnamilegacy/* instead of the chart default
+# bitnami/*: Broadcom discontinued free rolling image tags on docker.io/bitnami
+# in 2025, so the chart's default image reference 404s. bitnamilegacy/* is the
+# last frozen free snapshot (no further updates) — fine for local dev, but if
+# this project ever needs a maintained image, swap in a paid Bitnami
+# subscription registry or build from the upstream apache/kafka image instead.
+image:
+  repository: bitnamilegacy/kafka
+
+controller:
+  replicaCount: 1
+  resourcesPreset: "small"
+  # Kafka's internal __consumer_offsets / transaction-state topics default to
+  # replication factor 3 regardless of broker count. With a single-broker dev
+  # cluster that can never be satisfied, so __consumer_offsets never gets
+  # created and every consumer group hangs on "Group Coordinator Not
+  # Available". Force these down to 1 to match our single-broker setup.
+  # NOTE: controller.config *replaces* the chart's auto-generated config
+  # wholesale (it stripped out process.roles and broke the broker entirely).
+  # overrideConfiguration merges on top of the auto-generated config instead.
+  overrideConfiguration:
+    offsets.topic.replication.factor: 1
+    transaction.state.log.replication.factor: 1
+    transaction.state.log.min.isr: 1
+  persistence:
+    size: 2Gi
+  logPersistence:
+    size: 2Gi
+
+broker:
+  replicaCount: 0
+
+listeners:
+  client:
+    protocol: PLAINTEXT
+  controller:
+    protocol: PLAINTEXT
+  interbroker:
+    protocol: PLAINTEXT
+  external:
+    protocol: PLAINTEXT

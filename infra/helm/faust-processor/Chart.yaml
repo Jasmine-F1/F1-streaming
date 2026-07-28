@@ -1,0 +1,6 @@
+apiVersion: v2
+name: faust-processor
+description: Consumes f1.telemetry, validates + enriches, publishes f1.telemetry.processed
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

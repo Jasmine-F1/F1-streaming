@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "faust-processor.fullname" . }}
+  labels:
+    {{- include "faust-processor.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "faust-processor.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "faust-processor.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: faust-processor
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- toYaml .Values.args | nindent 12 }}
+          ports:
+            - name: web
+              containerPort: {{ .Values.env.webPort }}
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.env.kafkaBootstrapServers | quote }}
+            - name: INPUT_TOPIC
+              value: {{ .Values.env.inputTopic | quote }}
+            - name: OUTPUT_TOPIC
+              value: {{ .Values.env.outputTopic | quote }}
+            - name: FAUST_APP_ID
+              value: {{ .Values.env.appId | quote }}
+            - name: FAUST_WEB_PORT
+              value: {{ .Values.env.webPort | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "telemetry-generator.fullname" . }}
+  labels:
+    {{- include "telemetry-generator.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "telemetry-generator.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: telemetry-generator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--year={{ .Values.args.year }}"
+            - "--gp={{ .Values.args.grandPrix }}"
+            - "--session={{ .Values.args.session }}"
+            - "--drivers={{ .Values.args.drivers }}"
+            - "--speed={{ .Values.args.speed }}"
+            {{- if .Values.args.injectFaults }}
+            - "--inject-faults"
+            - "--fault-rate={{ .Values.args.faultRate }}"
+            {{- end }}
+            - "--kafka-bootstrap-servers={{ .Values.kafka.bootstrapServers }}"
+            - "--topic={{ .Values.kafka.topic }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
