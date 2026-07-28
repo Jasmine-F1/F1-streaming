@@ -33,3 +33,6 @@ charts/*.tgz
 .DS_Store
 .vscode/
 .idea/
+
+# Personal learning notes — kept on the Desktop, not in the repo
+docs/glossary.md

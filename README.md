@@ -34,7 +34,7 @@ Terraform (VPC / EKS / IAM)
 - `apps/` — pipeline services (telemetry generator, Faust processor, MCP copilot)
 - `infra/` — Terraform, Helm charts, kind config, ArgoCD manifests
 - `observability/` — Prometheus rules, Grafana dashboards, Loki config
-- `docs/` — architecture notes, design decisions, and a [concepts glossary](docs/glossary.md) (kind/K8s/Helm/Kafka explained)
+- `docs/` — architecture notes and design decisions
 - `scripts/` — local dev helper scripts
 
 ## Status
