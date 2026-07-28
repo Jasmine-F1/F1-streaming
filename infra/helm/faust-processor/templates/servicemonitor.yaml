@@ -1,0 +1,16 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "faust-processor.fullname" . }}
+  labels:
+    {{- include "faust-processor.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "faust-processor.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: web
+      path: /metrics
+      interval: 15s
+{{- end }}

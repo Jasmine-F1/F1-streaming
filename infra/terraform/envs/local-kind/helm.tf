@@ -6,42 +6,47 @@ resource "kubernetes_namespace" "pipeline" {
   depends_on = [kind_cluster.this]
 }
 
-resource "helm_release" "kafka" {
-  name       = "kafka"
-  repository = "https://charts.bitnami.com/bitnami"
-  chart      = "kafka"
-  version    = var.kafka_chart_version
-  namespace  = kubernetes_namespace.pipeline.metadata[0].name
+resource "kubernetes_namespace" "argocd" {
+  metadata {
+    name = "argocd"
+  }
 
-  values = [
-    file("${path.module}/../../../helm/kafka-values.yaml")
+  depends_on = [kind_cluster.this]
+}
+
+# Terraform's job stops at "the cluster exists" (per the architecture: infra
+# up through K8s is Terraform's layer, everything deployed *onto* it is
+# ArgoCD's GitOps layer — see docs/architecture.md). ArgoCD itself is the one
+# exception installed here rather than via GitOps, since it has to exist
+# before it can bootstrap anything else. Kafka and faust-processor used to be
+# helm_release resources in this file; they're now ArgoCD Applications
+# instead (infra/argocd/apps/) so Terraform and ArgoCD aren't both trying to
+# own the same resources.
+resource "helm_release" "argocd" {
+  name       = "argocd"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-cd"
+  version    = var.argocd_chart_version
+  namespace  = kubernetes_namespace.argocd.metadata[0].name
+
+  # Local kind dev only: serve the API/UI over plain HTTP so `kubectl
+  # port-forward` + a browser just works, no cert setup. Never do this on a
+  # real cluster.
+  set = [
+    {
+      name  = "configs.params.server\\.insecure"
+      value = "true"
+    }
   ]
 
   wait    = true
   timeout = 300
 }
 
-resource "helm_release" "faust_processor" {
-  name      = "faust-processor"
-  chart     = "${path.module}/../../../helm/faust-processor"
-  namespace = kubernetes_namespace.pipeline.metadata[0].name
-
-  set = [
-    {
-      name  = "image.tag"
-      value = var.faust_processor_image_tag
-    }
-  ]
-
-  wait       = true
-  timeout    = 120
-  depends_on = [helm_release.kafka]
-}
-
-# telemetry-generator is deliberately NOT a managed resource here: it's a
+# telemetry-generator is deliberately not GitOps-managed either: it's a
 # Kubernetes Job (run-to-completion), not a long-running service, and doesn't
-# fit Terraform's continuously-reconciled desired-state model well — applying
-# the same Job spec repeatedly wouldn't trigger a new run. It stays a
-# manually-triggered chart instead:
+# fit continuous reconciliation (ArgoCD would just see "Job already exists,
+# nothing to sync" — re-syncing wouldn't trigger a new run). It stays a
+# manually-triggered chart:
 #   helm install --generate-name infra/helm/telemetry-generator \
 #     -n pipeline --set args.injectFaults=true

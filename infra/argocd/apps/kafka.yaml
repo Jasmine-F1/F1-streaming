@@ -1,0 +1,30 @@
+# Multi-source Application: the chart comes from the Bitnami Helm repo, the
+# values file comes from our own git repo (referenced via the `$values`
+# alias) — this is how you GitOps-manage a third-party chart with your own
+# config, without forking the chart itself.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://charts.bitnami.com/bitnami
+      chart: kafka
+      targetRevision: 32.4.3
+      helm:
+        valueFiles:
+          - $values/infra/helm/kafka-values.yaml
+    - repoURL: https://github.com/Jasmine-F1/F1-streaming.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pipeline
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

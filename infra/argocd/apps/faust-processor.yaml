@@ -1,0 +1,32 @@
+# image.tag=local assumes the local-kind flow (build + `kind load
+# docker-image` by hand). Once this points at a real cluster fed by CI
+# (.github/workflows/faust-processor.yml pushes to GHCR), change this to the
+# GHCR image + a real tag — image.repository would need overriding too.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: faust-processor
+  namespace: argocd
+  annotations:
+    # After kube-prometheus-stack (wave 0) — this chart's ServiceMonitor/
+    # PrometheusRule need those CRDs to exist first.
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Jasmine-F1/F1-streaming.git
+    targetRevision: main
+    path: infra/helm/faust-processor
+    helm:
+      parameters:
+        - name: image.tag
+          value: local
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pipeline
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

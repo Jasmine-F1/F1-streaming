@@ -1,0 +1,52 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "faust-processor.fullname" . }}
+  labels:
+    {{- include "faust-processor.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: f1-telemetry
+      rules:
+        - alert: F1TelemetryHighInvalidRate
+          expr: |
+            (
+              sum(rate(f1_telemetry_invalid_total[5m]))
+              /
+              sum(rate(f1_telemetry_records_total[5m]))
+            ) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "More than 5% of telemetry records are failing validation"
+            description: "{{`{{ $value | humanizePercentage }}`}} of records over the last 5m failed a validation rule (speed/rpm/throttle out of range)."
+
+        - alert: F1TelemetryOutOfOrderData
+          expr: sum(increase(f1_telemetry_out_of_order_total[5m])) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Telemetry data is arriving out of order (late/delayed)"
+            description: "{{`{{ $value }}`}} out-of-order records detected in the last 5m — likely delayed producer data."
+
+        - alert: F1TelemetryPipelineStalled
+          expr: sum(rate(f1_telemetry_records_total[5m])) == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "faust-processor has stopped receiving telemetry"
+            description: "No telemetry records processed in the last 5 minutes — check whether telemetry-generator is running and Kafka connectivity."
+
+        - alert: F1TelemetryHighPipelineLag
+          expr: histogram_quantile(0.95, sum(rate(f1_telemetry_pipeline_lag_seconds_bucket[5m])) by (le)) > 10
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Telemetry pipeline p95 lag is above 10s"
+            description: "p95 wall-clock lag between producer emit and Faust processing is {{`{{ $value }}`}}s."
+{{- end }}
