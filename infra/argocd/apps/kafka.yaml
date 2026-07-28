@@ -1,7 +1,15 @@
-# Multi-source Application: the chart comes from the Bitnami Helm repo, the
+# Multi-source Application: the chart comes from Bitnami's OCI registry, the
 # values file comes from our own git repo (referenced via the `$values`
 # alias) — this is how you GitOps-manage a third-party chart with your own
 # config, without forking the chart itself.
+#
+# OCI, not the classic https://charts.bitnami.com/bitnami index: the Helm
+# 3.15.4 client bundled in ArgoCD's repo-server fails pulling from that
+# classic index with "invalid_reference: invalid tag" (this exact chart/
+# version pulls fine with a modern standalone `helm` CLI — this looks like a
+# bug/incompatibility specific to the older bundled client, not a problem
+# with the chart itself). The OCI registry is Bitnami's own supported
+# alternative distribution channel and isn't affected.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -10,7 +18,7 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://charts.bitnami.com/bitnami
+    - repoURL: registry-1.docker.io/bitnamicharts
       chart: kafka
       targetRevision: 32.4.3
       helm:

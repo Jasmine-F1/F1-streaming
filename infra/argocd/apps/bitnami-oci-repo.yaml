@@ -1,0 +1,21 @@
+# Not an Application — a Repository credential/config resource (ArgoCD
+# recognizes Secrets labeled argocd.argoproj.io/secret-type: repository).
+# Registers Bitnami's OCI chart registry as an actual OCI source; without
+# this, ArgoCD has no way to know a repoURL should be treated as OCI rather
+# than a classic Helm HTTP index, and silently mishandles it.
+# sync-wave -1: must exist before kafka.yaml's Application (wave 0) tries to
+# resolve its OCI source.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bitnami-oci-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+stringData:
+  type: helm
+  name: bitnamicharts
+  url: registry-1.docker.io/bitnamicharts
+  enableOCI: "true"
