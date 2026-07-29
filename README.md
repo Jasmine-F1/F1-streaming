@@ -49,8 +49,8 @@ log (what was done, why, and how it was verified). See CLAUDE.md for the
 - [x] `apps/faust-processor` (validation + feature engineering, verified end-to-end)
 - [x] Helm charts for both services + Terraform for local-kind (verified: `terraform apply` from a clean slate reproduces the whole pipeline)
 - [x] Terraform AWS EKS env scaffolded + `validate`d against real registry modules (not applied — needs sign-off first)
-- [x] GitHub Actions CI (build/test/push, path-filtered) — not yet run against real GitHub (nothing pushed to origin yet)
-- [ ] ArgoCD GitOps
-- [ ] Prometheus/Alertmanager + Grafana
+- [x] GitHub Actions CI (build/test/push, path-filtered), verified against real GitHub Actions runs
+- [x] ArgoCD GitOps (Terraform provisions cluster + ArgoCD only; ArgoCD deploys Kafka/faust-processor from git), verified end-to-end
+- [x] Prometheus/Alertmanager + Grafana (kube-prometheus-stack via ArgoCD), scraping + alert firing verified
 - [ ] `apps/mcp-copilot` (Claude MCP server)
 - [ ] AWS EKS validation run
