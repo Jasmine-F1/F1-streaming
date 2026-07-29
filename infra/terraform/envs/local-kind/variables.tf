@@ -13,5 +13,5 @@ variable "pipeline_namespace" {
 variable "argocd_chart_version" {
   description = "argo-cd Helm chart version"
   type        = string
-  default     = "7.7.11"
+  default     = "10.2.1"
 }

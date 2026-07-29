@@ -6,6 +6,112 @@ Chronological build log for this project. Newest entry on top. See
 
 ---
 
+## Week 2, Day 8-9 — ArgoCD GitOps, Prometheus/Alertmanager
+
+**What**: introduced ArgoCD as the actual deployment mechanism (per the
+architecture: Terraform stops at "the cluster exists," ArgoCD owns
+everything deployed onto it) and stood up the observability stack
+(Prometheus + Alertmanager + Grafana via kube-prometheus-stack).
+
+**Architecture change**: `helm_release.kafka` / `helm_release.faust_processor`
+were removed from Terraform (both envs) — they'd otherwise fight ArgoCD for
+ownership of the same resources. Replaced with ArgoCD Applications
+(`infra/argocd/apps/`):
+- `root-app.yaml`: an "app of apps" — the one manifest ever applied by hand
+  (`kubectl apply -f infra/argocd/root-app.yaml`). Everything else is
+  picked up automatically because it watches `infra/argocd/apps/`.
+- `kafka.yaml`, `kube-prometheus-stack.yaml`: multi-source Applications
+  (chart from the upstream repo, values from our own git repo via `$values`)
+- `faust-processor.yaml`: single-source, our own chart
+- `telemetry-generator` stays deliberately outside GitOps — same reasoning
+  as it staying outside Terraform: a run-to-completion Job doesn't fit
+  continuous reconciliation.
+
+**Four real bugs hit and fixed, in order** (all now permanent, not
+workarounds — each reproduced identically across two separate from-scratch
+cluster rebuilds, ruling out stale-state flakiness):
+
+1. **Bitnami's classic Helm index breaks ArgoCD's bundled Helm client.**
+   `helm pull --repo https://charts.bitnami.com/bitnami kafka --version
+   32.4.3` failed inside ArgoCD's repo-server with `invalid_reference:
+   invalid tag`, despite the identical command working fine with a
+   standalone modern `helm` CLI. Fixed by switching to Bitnami's OCI
+   registry (`registry-1.docker.io/bitnamicharts`), which needs an explicit
+   `Repository` secret (`bitnami-oci-repo.yaml`, sync-wave `-1`) — ArgoCD
+   only treats a repoURL as OCI when it's registered as such; an inline
+   `oci://` prefix on the Application source alone produces a different,
+   equally broken invocation.
+2. **Prometheus Operator's own CRDs are too big for ArgoCD's default apply.**
+   `alertmanagers.monitoring.coreos.com` and friends blew past Kubernetes'
+   262144-byte annotation limit when ArgoCD tried to client-side-apply them
+   (stashing the full manifest in `kubectl.kubernetes.io/last-applied-
+   configuration`). Fixed with `syncOptions: [ServerSideApply=true]` on the
+   kube-prometheus-stack Application — server-side apply doesn't use that
+   annotation at all.
+3. **ServerSideApply's structured-merge-diff didn't recognize a real K8s
+   API field.** After fixing #2, comparison still failed:
+   `.status.terminatingReplicas: field not declared in schema`. kind's node
+   image runs K8s v1.35.0; the Helm 3.15.4 client bundled in argo-cd chart
+   7.7.11 has an older/incomplete schema that predates this StatefulSet
+   status field. Fixed by upgrading the argo-cd chart to 10.2.1 (bundles
+   Helm 3.19.4) — resolved immediately, no other changes needed.
+4. **`--set` with a literal comma breaks Helm's CLI parsing.** `--set
+   args.drivers=VER,HAM` silently splits on the comma (`key "HAM" has no
+   value`) since `--set` uses commas as its own key=value separator — needs
+   `--set-string args.drivers='VER\,HAM'` (escaped) instead. Only bit us at
+   the shell/`helm install` layer, not a chart or ArgoCD issue.
+
+**Also learned**: ArgoCD's `selfHeal: true` actually works as designed — a
+`kubectl apply` of a fix directly to the cluster (to test faster, before
+pushing) got silently reverted within seconds because it drifted from what
+was in git. Good confirmation the mechanism works, but it means this class
+of fix can only be verified by actually committing and pushing; there's no
+"test locally first" shortcut once a resource is GitOps-managed.
+
+**Verified end-to-end**:
+- Destroyed and recreated the cluster from scratch via Terraform twice
+  during this work (once to introduce ArgoCD, once more after hunting bug
+  #3) — both times `kind_cluster` → `helm_release.argocd` → root
+  Application → all four child Applications reached Synced+Healthy without
+  manual intervention beyond the initial bootstrap `kubectl apply`.
+- Ran `telemetry-generator` (fault injection on) through the fully
+  GitOps-managed Kafka + faust-processor: raw and processed topic offsets
+  matched exactly (74944 == 74944) — same zero-loss guarantee as the
+  pre-ArgoCD manual setup, now reproduced under GitOps.
+- Confirmed Prometheus actually scrapes faust-processor's `/metrics` (target
+  `up`, `f1_telemetry_records_total` queryable via the Prometheus API,
+  value matching the live pod's own endpoint).
+- Confirmed alerts fire for real, not just "rule loaded": manually injected
+  30 synthetic out-of-range records via `kafka-console-producer` and
+  watched `f1_telemetry_invalid_total` increment exactly 30/30 for both
+  `speed_out_of_range` and `rpm_out_of_range` — validation logic and metric
+  plumbing both correct, even though this specific burst aged out of the
+  `rate()` window before the alert's `for: 2m` elapsed (expected PromQL
+  behavior for a one-shot burst, not a bug). Two *other* alerts fired for
+  real through sustained conditions and showed as `active` in Alertmanager
+  itself (not just Prometheus's internal rule state):
+  `F1TelemetryOutOfOrderData` (from running multiple generator sessions
+  back-to-back, resetting session-time — a known, documented side effect)
+  and `F1TelemetryHighPipelineLag` (genuine processing lag from the local
+  cluster running under heavy resource pressure — ArgoCD + full
+  kube-prometheus-stack + Kafka + faust-processor all on one kind cluster is
+  a lot for a laptop).
+
+**Known rough edge, not fixed**: this local cluster runs hot under the full
+stack (control-plane CPU 150-200%+ sustained), causing intermittent
+`kubectl`/API-server TLS handshake timeouts and aiokafka consumer
+keepalive warnings during heavy verification work. Didn't affect
+correctness of anything verified above, just made it slower and requires
+patience/retries. Worth revisiting resource requests/limits across the
+stack if this becomes a recurring annoyance.
+
+**Files**: `infra/argocd/{root-app.yaml,apps/**}`,
+`infra/helm/kube-prometheus-stack-values.yaml`,
+`infra/helm/faust-processor/templates/{servicemonitor,prometheusrule}.yaml`,
+`infra/terraform/envs/{local-kind,aws-eks}/{helm.tf,variables.tf}`.
+
+---
+
 ## Week 1, Day 5-7 — Helm charts, Terraform (local + AWS scaffold), GitHub Actions CI
 
 **What**: formalized everything built by hand so far into reproducible,
