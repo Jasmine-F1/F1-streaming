@@ -50,6 +50,9 @@ grafana:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 192Mi
     limits:
-      memory: 256Mi
+      # 256Mi was too tight — observed Grafana getting OOMKilled under normal
+      # dashboard load (13.1.1 with the sidecar-provisioned dashboard) even
+      # with nothing unusual happening elsewhere on the cluster.
+      memory: 512Mi
