@@ -25,4 +25,9 @@ serviceMonitor:
 prometheusRule:
   enabled: true
 
+# Requires kube-prometheus-stack's Grafana sidecar dashboard discovery
+# (chart default, no extra setup needed on the Grafana side).
+grafanaDashboard:
+  enabled: true
+
 resources: {}
