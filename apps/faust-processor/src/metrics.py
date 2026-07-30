@@ -1,4 +1,4 @@
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 RECORDS_TOTAL = Counter(
     "f1_telemetry_records_total",
@@ -23,3 +23,11 @@ PIPELINE_LAG_SECONDS = Histogram(
     "Wall-clock seconds between the producer emitting a record and Faust processing it",
     buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60),
 )
+
+# Gauges (not counters): these track the *current* value of a live signal, for
+# the Grafana "mission control" telemetry panels — not pipeline-health
+# bookkeeping like the metrics above.
+SPEED_KPH = Gauge("f1_telemetry_speed_kph", "Most recent speed reading", ["driver_code"])
+THROTTLE_PCT = Gauge("f1_telemetry_throttle_pct", "Most recent throttle reading", ["driver_code"])
+RPM = Gauge("f1_telemetry_rpm", "Most recent RPM reading", ["driver_code"])
+GEAR = Gauge("f1_telemetry_gear", "Most recent gear", ["driver_code"])

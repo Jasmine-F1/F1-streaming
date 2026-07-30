@@ -52,6 +52,20 @@ async def process(records):
             metrics.OUT_OF_ORDER_TOTAL.labels(driver_code=record.driver_code).inc()
         metrics.PIPELINE_LAG_SECONDS.observe(max(pipeline_lag_s, 0.0))
 
+        # Only feed valid readings into the live-telemetry gauges — these back
+        # the "mission control" dashboard panels, which should show believable
+        # car data, not an out-of-range fault spiking the needle to 99999.
+        # Invalid records are still fully counted above (INVALID_TOTAL).
+        if is_valid:
+            if record.speed_kph is not None:
+                metrics.SPEED_KPH.labels(driver_code=record.driver_code).set(record.speed_kph)
+            if record.throttle_pct is not None:
+                metrics.THROTTLE_PCT.labels(driver_code=record.driver_code).set(record.throttle_pct)
+            if record.rpm is not None:
+                metrics.RPM.labels(driver_code=record.driver_code).set(record.rpm)
+            if record.n_gear is not None:
+                metrics.GEAR.labels(driver_code=record.driver_code).set(record.n_gear)
+
         await processed_topic.send(
             key=key,
             value=ProcessedTelemetryRecord(

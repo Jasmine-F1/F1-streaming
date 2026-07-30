@@ -1,0 +1,16 @@
+{{- if .Values.grafanaDashboard.enabled }}
+# Picked up automatically by kube-prometheus-stack's Grafana sidecar — it
+# watches every namespace for ConfigMaps labeled grafana_dashboard: "1"
+# (chart default: sidecar.dashboards.enabled=true, searchNamespace=ALL).
+# No manual import into the Grafana UI needed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "faust-processor.fullname" . }}-dashboard
+  labels:
+    {{- include "faust-processor.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  mission-control.json: |-
+{{ .Files.Get "dashboards/mission-control.json" | indent 4 }}
+{{- end }}
