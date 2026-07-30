@@ -6,6 +6,77 @@ Chronological build log for this project. Newest entry on top. See
 
 ---
 
+## Week 2, Day 10-11 — Grafana "mission control" dashboard
+
+**What**: a 12-panel Grafana dashboard for the telemetry pipeline, shipped
+as GitOps-managed config (no manual dashboard import), plus the new metrics
+it needed that didn't exist yet.
+
+**New metrics** (`apps/faust-processor/src/metrics.py`): four Gauges —
+`f1_telemetry_{speed_kph,throttle_pct,rpm,gear}`, labeled by `driver_code`.
+Everything faust-processor exposed before this (Day 8-9) was pipeline-health
+bookkeeping (counters/histogram); a "mission control" dashboard needs the
+actual live car values too. Only *valid* records feed these gauges — an
+injected out-of-range fault shouldn't spike the speed needle to 99999 on a
+panel meant to show believable telemetry; invalid records are still fully
+counted via the existing `INVALID_TOTAL` counter, so nothing is hidden, just
+kept off the wrong panel.
+
+**Dashboard** (`infra/helm/faust-processor/dashboards/mission-control.json`,
+16 panels including 4 section-header rows): applied the project's data-viz
+conventions rather than eyeballing colors —
+- Categorical driver colors assigned in fixed order from the validated
+  reference palette (`references/palette.md` in the dataviz skill): VER/HAM/
+  LEC get slots 1-3 (`#3987e5`/`#d95926`/`#199e70`, dark-mode steps), the
+  three slots the palette doc certifies as clearing the CVD/contrast floors
+  for *all* pairs simultaneously, not just adjacent ones — the right choice
+  here since every telemetry panel shows all three drivers together, not a
+  stacked/adjacent-only view. A 4th+ driver falls back to Grafana's own
+  default palette (documented as a known, deliberate scope limit).
+- Status colors (good/warning/critical — `#0ca30c`/`#fab219`/`#d03b3b`)
+  reserved for stat-panel thresholds only, never reused for series identity.
+- Four sections: KPI stat row (active drivers, records/sec, validation error
+  rate, p95 pipeline lag) → live telemetry (speed/throttle/RPM/gear per
+  driver) → pipeline health (throughput by driver, invalid-by-reason,
+  out-of-order events) → active alerts (table, queries Prometheus's own
+  `ALERTS{alertname=~"F1.*"}` directly rather than depending on Grafana's
+  separate alerting integration).
+
+**Shipping mechanism**: the dashboard JSON is embedded into a ConfigMap via
+Helm's `.Files.Get` (`infra/helm/faust-processor/templates/grafana-
+dashboard.yaml`), labeled `grafana_dashboard: "1"`. kube-prometheus-stack's
+Grafana ships a sidecar that watches every namespace for exactly that label
+(chart default: `sidecar.dashboards.enabled=true`, `searchNamespace=ALL`) —
+so the dashboard appears the moment ArgoCD syncs the ConfigMap, zero manual
+"import dashboard" clicks in the Grafana UI. This is the same "app owns its
+own observability config" pattern as the Day 8-9 ServiceMonitor/
+PrometheusRule additions.
+
+**Verified end-to-end**, including through Grafana's own query path (not
+just Prometheus directly):
+- Ran a small telemetry-generator batch (VER/HAM/LEC) against the rebuilt
+  faust-processor image; confirmed all four gauges populated correctly per
+  driver on the raw `/metrics` endpoint.
+- Confirmed the Grafana sidecar actually picked up the ConfigMap (log line:
+  `Writing /tmp/dashboards/mission-control.json` →
+  `Dashboards config reloaded ... 200 OK`) and that the dashboard is
+  registered (`GET /api/search` returns it, uid `f1-mission-control`).
+- Fetched the live dashboard JSON back from Grafana's API and confirmed all
+  16 panels are present and correctly typed.
+- Queried `f1_telemetry_speed_kph` and `ALERTS{alertname=~"F1.*"}` through
+  Grafana's own datasource proxy (`/api/datasources/proxy/uid/prometheus/...`)
+  — not just Prometheus's API directly — and got back real, correctly
+  labeled data for both, including `F1TelemetryPipelineStalled` sitting in
+  `pending` once the test batch's data stopped flowing (the alerts table
+  panel doing exactly its job).
+
+**Files**: `apps/faust-processor/src/{metrics,app}.py`,
+`infra/helm/faust-processor/dashboards/mission-control.json`,
+`infra/helm/faust-processor/templates/grafana-dashboard.yaml`,
+`infra/helm/faust-processor/values.yaml`.
+
+---
+
 ## Week 2, Day 8-9 — ArgoCD GitOps, Prometheus/Alertmanager
 
 **What**: introduced ArgoCD as the actual deployment mechanism (per the

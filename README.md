@@ -52,5 +52,6 @@ log (what was done, why, and how it was verified). See CLAUDE.md for the
 - [x] GitHub Actions CI (build/test/push, path-filtered), verified against real GitHub Actions runs
 - [x] ArgoCD GitOps (Terraform provisions cluster + ArgoCD only; ArgoCD deploys Kafka/faust-processor from git), verified end-to-end
 - [x] Prometheus/Alertmanager + Grafana (kube-prometheus-stack via ArgoCD), scraping + alert firing verified
+- [x] Grafana "mission control" dashboard (12 panels, GitOps-provisioned via ConfigMap sidecar), verified end-to-end through Grafana's own query path
 - [ ] `apps/mcp-copilot` (Claude MCP server)
 - [ ] AWS EKS validation run
