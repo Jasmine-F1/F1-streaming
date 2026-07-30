@@ -41,6 +41,23 @@ separate, parallel pipeline that only builds and publishes images — it
 doesn't deploy anything either; ArgoCD is the only thing that changes what's
 actually running on the cluster.
 
+## Screenshots
+
+The Grafana "mission control" dashboard, live against real FastF1 replay
+data flowing through Kafka -> faust-processor -> Prometheus:
+
+![Overview + live per-driver telemetry](docs/screenshots/grafana-mission-control-overview.png)
+
+*Overview stat row (active drivers, throughput, validation error rate,
+p95 pipeline lag) and live per-driver speed/throttle/RPM/gear.*
+
+![Pipeline health and active alerts](docs/screenshots/grafana-mission-control-alerts.png)
+
+*Pipeline health (throughput by driver, invalid records by validation
+reason, out-of-order events) and the active-alerts table — both alerts
+shown here are real: injected out-of-order data and genuine pipeline lag
+from cluster resource pressure, not staged.*
+
 ## Repo layout
 
 - `apps/` — pipeline services (telemetry generator, Faust processor, MCP copilot)
